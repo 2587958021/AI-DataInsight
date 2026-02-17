@@ -1,4 +1,3 @@
 git add -A
-git commit -m "Remove dist folder and clean project"
+git commit -m "Remove push script"
 git push github master
-git push gitee master
