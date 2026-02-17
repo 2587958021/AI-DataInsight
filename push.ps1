@@ -1,3 +1,3 @@
 git add -A
-git commit -m "Remove push script"
+git commit -m "Final cleanup: remove all temporary scripts"
 git push github master
