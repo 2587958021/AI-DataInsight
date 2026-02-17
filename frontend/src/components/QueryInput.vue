@@ -13,9 +13,7 @@ const sampleQueries = [
   '计算2024年每个季度的总收入'
 ]
 
-const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://ai-datainsight.onrender.com' 
-  : 'http://localhost:3002'
+const API_BASE_URL = 'http://localhost:3002'
 
 const submitQuery = async () => {
   if (!query.value.trim()) return
