@@ -13,39 +13,23 @@ const sampleQueries = [
   '计算2024年每个季度的总收入'
 ]
 
-const API_BASE_URL = 'http://localhost:3002'
-
+// 纯前端版本 - 使用模拟数据
 const submitQuery = async () => {
   if (!query.value.trim()) return
   
   loading.value = true
   
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query: query.value })
-    })
-    
-    if (!response.ok) {
-      throw new Error('请求失败')
-    }
-    
-    const result = await response.json()
-    emit('result', result)
-  } catch (error) {
-    console.error('查询失败:', error)
-    // 如果后端不可用，使用模拟数据
-    const mockResult = generateMockResult(query.value)
-    emit('result', {
-      query: query.value,
-      ...mockResult
-    })
-  } finally {
-    loading.value = false
-  }
+  // 模拟 API 延迟
+  await new Promise(resolve => setTimeout(resolve, 800))
+  
+  // 生成模拟结果
+  const mockResult = generateMockResult(query.value)
+  emit('result', {
+    query: query.value,
+    ...mockResult
+  })
+  
+  loading.value = false
 }
 
 const generateMockResult = (q) => {
