@@ -5,6 +5,7 @@ const emit = defineEmits(['result'])
 
 const query = ref('')
 const loading = ref(false)
+const error = ref('')
 
 const sampleQueries = [
   '查询2024年各月份的销售额',
@@ -13,34 +14,49 @@ const sampleQueries = [
   '计算2024年每个季度的总收入'
 ]
 
-// 纯前端版本 - 使用模拟数据
+// 调用后端 API
 const submitQuery = async () => {
   if (!query.value.trim()) return
   
   loading.value = true
+  error.value = ''
   
-  // 模拟 API 延迟
-  await new Promise(resolve => setTimeout(resolve, 800))
-  
-  // 生成模拟结果
-  const mockResult = generateMockResult(query.value)
-  emit('result', {
-    query: query.value,
-    ...mockResult
-  })
-  
-  loading.value = false
+  try {
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query: query.value })
+    })
+    
+    if (!response.ok) {
+      throw new Error('请求失败')
+    }
+    
+    const result = await response.json()
+    emit('result', {
+      query: query.value,
+      ...result
+    })
+  } catch (err) {
+    error.value = '请求失败，请确保后端服务已启动 (npm start in backend folder)'
+    // 如果后端不可用，使用模拟数据
+    const mockResult = generateMockResult(query.value)
+    emit('result', {
+      query: query.value,
+      ...mockResult
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
+// 备用：模拟数据生成
 const generateMockResult = (q) => {
-  // 根据查询内容生成模拟结果
   if (q.includes('销售') || q.includes('收入')) {
     return {
-      sql: `SELECT DATE_FORMAT(order_date, '%Y-%m') as month, SUM(amount) as total_sales
-FROM orders
-WHERE YEAR(order_date) = 2024
-GROUP BY month
-ORDER BY month;`,
+      sql: `SELECT DATE_FORMAT(order_date, '%Y-%m') as month, SUM(amount) as total_sales\nFROM orders\nWHERE YEAR(order_date) = 2024\nGROUP BY month\nORDER BY month;`,
       data: {
         type: 'line',
         labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
@@ -56,34 +72,21 @@ ORDER BY month;`,
     }
   } else if (q.includes('产品') || q.includes('类别')) {
     return {
-      sql: `SELECT category, AVG(price) as avg_price, COUNT(*) as product_count
-FROM products
-GROUP BY category
-ORDER BY avg_price DESC;`,
+      sql: `SELECT category, AVG(price) as avg_price, COUNT(*) as product_count\nFROM products\nGROUP BY category\nORDER BY avg_price DESC;`,
       data: {
         type: 'bar',
         labels: ['电子产品', '家居用品', '服装配饰', '食品饮料', '图书文具'],
         datasets: [{
           label: '平均价格（元）',
           data: [2580, 680, 420, 85, 45],
-          backgroundColor: [
-            '#667eea',
-            '#764ba2',
-            '#f093fb',
-            '#f5576c',
-            '#4facfe'
-          ]
+          backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe']
         }]
       },
       insight: '电子产品类别平均价格最高（2580元），但数量相对较少。建议优化中低价位产品线以提升销量。'
     }
   } else {
     return {
-      sql: `SELECT product_name, SUM(quantity) as total_quantity
-FROM order_items
-GROUP BY product_name
-ORDER BY total_quantity DESC
-LIMIT 10;`,
+      sql: `SELECT product_name, SUM(quantity) as total_quantity\nFROM order_items\nGROUP BY product_name\nORDER BY total_quantity DESC\nLIMIT 10;`,
       data: {
         type: 'bar',
         labels: ['iPhone 15', 'AirPods Pro', 'iPad Air', 'MacBook Air', '小米14', '华为P60', '戴森吸尘器', '索尼耳机', 'Switch游戏机', 'Kindle'],
@@ -97,45 +100,41 @@ LIMIT 10;`,
     }
   }
 }
-
-const useSample = (sample) => {
-  query.value = sample
-}
 </script>
 
 <template>
-  <div class="query-input-card">
-    <h3 class="card-title">💡 输入你的数据问题</h3>
-    
+  <div class="query-section">
     <div class="input-area">
       <textarea
         v-model="query"
-        class="query-textarea"
-        placeholder="例如：查询2024年各月份的销售额..."
-        rows="4"
+        placeholder="请输入你的数据分析问题，例如：查询2024年各月份的销售额"
         @keydown.enter.prevent="submitQuery"
+        :disabled="loading"
       ></textarea>
-      
-      <button
-        class="submit-btn"
+      <button 
+        @click="submitQuery" 
         :disabled="loading || !query.trim()"
-        @click="submitQuery"
+        class="submit-btn"
       >
         <span v-if="loading" class="loading-spinner"></span>
-        <span v-else>🚀 分析数据</span>
+        <span v-else>🚀 分析</span>
       </button>
     </div>
-
+    
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+    
     <div class="sample-queries">
-      <p class="sample-title">💡 试试这些示例：</p>
-      <div class="sample-tags">
+      <p>💡 试试这些问题：</p>
+      <div class="query-tags">
         <span
-          v-for="sample in sampleQueries"
-          :key="sample"
-          class="sample-tag"
-          @click="useSample(sample)"
+          v-for="(q, index) in sampleQueries"
+          :key="index"
+          @click="query = q"
+          class="query-tag"
         >
-          {{ sample }}
+          {{ q }}
         </span>
       </div>
     </div>
@@ -143,61 +142,62 @@ const useSample = (sample) => {
 </template>
 
 <style scoped>
-.query-input-card {
+.query-section {
   background: white;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-}
-
-.card-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 .input-area {
   display: flex;
-  flex-direction: column;
   gap: 12px;
+  margin-bottom: 16px;
 }
 
-.query-textarea {
-  width: 100%;
+textarea {
+  flex: 1;
+  min-height: 80px;
   padding: 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e4e7ed;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 15px;
   resize: vertical;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
   font-family: inherit;
 }
 
-.query-textarea:focus {
+textarea:focus {
   outline: none;
   border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+textarea:disabled {
+  background: #f5f7fa;
+  cursor: not-allowed;
 }
 
 .submit-btn {
-  padding: 14px 24px;
+  padding: 0 32px;
+  height: 80px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  min-width: 120px;
 }
 
 .submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
 }
 
 .submit-btn:disabled {
@@ -208,46 +208,55 @@ const useSample = (sample) => {
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #ffffff;
-  border-top-color: transparent;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.sample-queries {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
+.error-message {
+  color: #f56c6c;
+  background: #fef0f0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
 }
 
-.sample-title {
-  font-size: 0.9rem;
-  color: #666;
+.sample-queries {
+  padding-top: 16px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.sample-queries p {
+  color: #606266;
+  font-size: 14px;
   margin-bottom: 12px;
 }
 
-.sample-tags {
+.query-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.sample-tag {
-  padding: 8px 14px;
-  background: #f5f5f5;
+.query-tag {
+  padding: 8px 16px;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
   border-radius: 20px;
-  font-size: 0.85rem;
-  color: #555;
+  font-size: 13px;
+  color: #606266;
   cursor: pointer;
   transition: all 0.3s;
-  border: 1px solid transparent;
 }
 
-.sample-tag:hover {
+.query-tag:hover {
   background: #667eea;
   color: white;
   border-color: #667eea;
