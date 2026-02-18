@@ -3,7 +3,7 @@ backend/node_modules/
 frontend/node_modules/
 
 # Build output
-frontend/dist/
+# frontend/dist/  # 注释掉，因为要部署到 GitHub Pages
 
 # Environment variables
 backend/.env
